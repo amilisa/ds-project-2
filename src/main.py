@@ -19,14 +19,13 @@ def is_command_valid(command):
     return False
 
 
-processes_number = int(sys.argv[1])
+generals_number = int(sys.argv[1])
 
 nodes = []
+ports = list(range(PORT, PORT + generals_number))
 
-for n in range(processes_number):
-    node = Node(PORT + n, processes_number)
-    if n == 0:
-        node.is_primary = True
+for n in range(generals_number):
+    node = Node(PORT + n, generals_number, ports.copy())
     node.primary_port = PORT
     nodes.append(node)
 
@@ -36,7 +35,6 @@ for node in nodes:
 
 for description in COMMANDS.values():
     print(description)
-
 
 def signal_handler(sig, frame):
     for n in nodes:
@@ -55,20 +53,29 @@ while True:
         print("Command is invalid. Please try again.")
         continue
     elif command[0] == ACTUAL_ORDER:
-        conn = rpyc.connect("localhost", nodes[0].port)
+        ports.sort()
+        conn = rpyc.connect("localhost", ports[0])
         response = conn.root.define_order(order=command[1])
         conn.close()
 
-        for node in nodes:
-            conn = rpyc.connect("localhost", node.port)
+        for port in ports:
+            conn = rpyc.connect("localhost", port)
             id, role, state, majority = conn.root.get_node_data()
             print(f"G{id},{role},state={state},majority={majority}")
             conn.close()
 
         print(response)
     elif command[0] == G_STATE:
-        # TODO: g-state
-        pass
+        if len(command) == 3:
+            conn = rpyc.connect("localhost", PORT + int(command[1]) - 1)
+            conn.root.set_state(state=command[2])
+            conn.close()
+
+        for port in ports:
+            conn = rpyc.connect("localhost", port)
+            id, role, state, _ = conn.root.get_node_data()
+            print(f"G{id},{role},state={state}")
+            conn.close()
     elif command[0] == G_KILL:
         # TODO: g-kill
         pass

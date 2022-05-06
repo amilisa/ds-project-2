@@ -20,3 +20,6 @@ class RPCService(rpyc.Service):
 
     def exposed_get_node_data(self):
         return self.node.get_data()
+
+    def exposed_set_state(self, state):
+        self.node.set_state(state)

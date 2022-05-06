@@ -7,11 +7,11 @@ from rpyc.utils.server import ThreadedServer
 
 
 class Node(Process):
-    def __init__(self, port, generals_number):
+    def __init__(self, port, generals_number, ports):
         super().__init__()
         self.id = port % PORT + 1
         self.port = port
-        self.ports = list(range(PORT, PORT + generals_number))
+        self.ports = ports
         self.ports.remove(self.port)
         self.primary_port = None
         self.state = NF
@@ -52,6 +52,9 @@ class Node(Process):
 
     def set_order(self, order):
         self.order = order
+
+    def set_state(self, state):
+        self.state = state
 
     def perform_quorum(self):
         for port in self.ports:
