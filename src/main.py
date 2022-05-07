@@ -3,7 +3,7 @@ import sys
 import rpyc
 import signal
 from node import Node
-from consts import PORT, COMMANDS, ACTUAL_ORDER, G_STATE, G_KILL, G_ADD, ORDERS, STATES
+from consts import PORT, COMMANDS, ACTUAL_ORDER, G_STATE, G_KILL, G_ADD, EXIT, ORDERS, STATES
 
 
 def is_command_valid(command):
@@ -17,6 +17,8 @@ def is_command_valid(command):
             return True
         elif (command[0] == G_KILL or command[0] == G_ADD) and command[1].isdigit():
             return True
+    elif command[0] == EXIT:
+        return True
     return False
 
 
@@ -47,37 +49,45 @@ for n in range(generals_number):
 for node in nodes:
     node.start()
 
+print("\nAvailable commands:")
 for description in COMMANDS.values():
     print(description)
 
 signal.signal(signal.SIGINT, signal_handler)
 
 while True:
-
     command = input("\nCommand: ").split()
 
     if not is_command_valid(command):
         print("Command is invalid. Please try again.")
         continue
     elif command[0] == ACTUAL_ORDER:
-        conn = rpyc.connect("localhost", ports[0])
-        response = conn.root.define_order(order=command[1])
-        conn.close()
+        if len(ports) != 1:
+            conn = rpyc.connect("localhost", ports[0])
+            response = conn.root.define_order(order=command[1])
+            conn.close()
 
-        print_generals_data(ports, True)
-
-        print(response)
+            print_generals_data(ports, True)
+            print(response)
+        else:
+            print("Cannot determine order as only one general is left!")
     elif command[0] == G_STATE:
         if len(command) == 3:
-            conn = rpyc.connect("localhost", PORT + int(command[1]) - 1)
-            conn.root.set_state(state=command[2])
-            conn.close()
+            id = int(command[1])
+            port = PORT + id - 1
+            if port in ports:
+                conn = rpyc.connect("localhost", port)
+                conn.root.set_state(state=command[2])
+                conn.close()
+            else:
+                print(f"No general with id {id}")
 
         print_generals_data(ports, False)
     elif command[0] == G_KILL:
         id = int(command[1])
         port = PORT + id - 1
-        if port in ports:
+        is_threshold = len(ports) == 1
+        if port in ports and not is_threshold:
             conn = rpyc.connect("localhost", port)
             conn.root.kill_general(port)
             conn.close()
@@ -91,7 +101,8 @@ while True:
             ports.remove(port)
             print_generals_data(ports, False)
         else:
-            print(f"No general with id {port % PORT + 1}.")
+            response = f"{'No general with id' + str(port % PORT + 1) if not is_threshold else 'Cannot kill general as only one is left!'}"
+            print(response)
     elif command[0] == G_ADD:
         generals_to_add = int(command[1])
         new_ports = list(range(ports[-1] + 1, ports[-1] + 1 + generals_to_add))
@@ -108,7 +119,7 @@ while True:
         conn.close()
 
         print_generals_data(ports, False)
-    elif command[0] == "exit":
+    elif command[0] == EXIT:
         print("Exiting...")
         break
 

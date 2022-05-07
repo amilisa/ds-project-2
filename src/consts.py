@@ -4,6 +4,7 @@ ACTUAL_ORDER = "actual-order"
 G_STATE = "g-state"
 G_KILL = "g-kill"
 G_ADD = "g-add"
+EXIT = "exit"
 
 PRIMARY = "primary"
 SECONDARY = "secondary"
