@@ -1,17 +1,20 @@
+import signal
 import rpyc
 import random
+import os
 from multiprocessing import Process
-from consts import PORT, NF, F, PRIMARY, SECONDARY, STATES, ATTACK, RETREAT, UNDEFINED
+from consts import PORT, NF, F, PRIMARY, SECONDARY, ATTACK, RETREAT, UNDEFINED, ORDERS
 from rpc_service import RPCService
 from rpyc.utils.server import ThreadedServer
 
 
 class Node(Process):
-    def __init__(self, port, generals_number, ports):
+    def __init__(self, port, ports):
         super().__init__()
         self.id = port % PORT + 1
         self.port = port
         self.ports = ports
+        self.generals_number = len(self.ports)
         self.ports.remove(self.port)
         self.primary_port = None
         self.state = NF
@@ -19,14 +22,13 @@ class Node(Process):
         self.order = None
         self.votes = {ATTACK: 0, RETREAT: 0}
         self.fauly_generals_number = 0
-        self.generals_number = generals_number
         self.rpc_service = RPCService(self)
 
     def define_order(self, order):
         self.majority = order
         for port in self.ports:
             if self.state == F:
-                self.set_order(random.choice(STATES))
+                self.set_order(random.choice(ORDERS))
             else:
                 self.set_order(order)
             conn = rpyc.connect("localhost", port)
@@ -55,6 +57,11 @@ class Node(Process):
 
     def set_state(self, state):
         self.state = state
+        if self.state == NF and self.fauly_generals_number > 0:
+            self.fauly_generals_number -= 1
+        else:
+            self.fauly_generals_number += 1
+        
 
     def perform_quorum(self):
         for port in self.ports:
@@ -72,7 +79,7 @@ class Node(Process):
 
     def get_order(self):
         if self.state == F:
-            return random.choice(STATES)
+            return random.choice(ORDERS)
         else:
             return self.order
 
@@ -80,6 +87,26 @@ class Node(Process):
         role = PRIMARY if self.port == self.primary_port else SECONDARY
         state = 'NF' if self.state == NF else 'F'
         return self.id, role, state, self.majority
+
+    def kill_general(self, port):
+        if port == self.primary_port:
+            primary = sorted(self.ports)[0]
+            for p in self.ports:
+                conn = rpyc.connect("localhost", p)
+                conn.root.set_primary(primary)
+                conn.close()
+
+        for p in self.ports:
+            conn = rpyc.connect("localhost", p)
+            conn.root.remove_general(port)
+            conn.close()
+    
+    def set_primary(self, primary):
+        self.primary_port = primary
+    
+    def remove_general(self, port):
+        self.ports.remove(port)
+        self.generals_number -= 1
 
     def run(self):
         ThreadedServer(self.rpc_service, port=self.port).start()

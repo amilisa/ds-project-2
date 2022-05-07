@@ -1,3 +1,4 @@
+import readline
 import sys
 import rpyc
 import signal
@@ -19,29 +20,28 @@ def is_command_valid(command):
     return False
 
 
-generals_number = int(sys.argv[1])
-
-nodes = []
-ports = list(range(PORT, PORT + generals_number))
-
-for n in range(generals_number):
-    node = Node(PORT + n, generals_number, ports.copy())
-    node.primary_port = PORT
-    nodes.append(node)
-
-for node in nodes:
-    node.generals = nodes
-    node.start()
-
-for description in COMMANDS.values():
-    print(description)
-
 def signal_handler(sig, frame):
     for n in nodes:
         n.terminate()
     print("Exiting...")
     exit(0)
 
+
+generals_number = int(sys.argv[1])
+
+nodes = []
+ports = list(range(PORT, PORT + generals_number))
+
+for n in range(generals_number):
+    node = Node(PORT + n, ports.copy())
+    node.primary_port = PORT
+    nodes.append(node)
+
+for node in nodes:
+    node.start()
+
+for description in COMMANDS.values():
+    print(description)
 
 signal.signal(signal.SIGINT, signal_handler)
 
@@ -77,8 +77,27 @@ while True:
             print(f"G{id},{role},state={state}")
             conn.close()
     elif command[0] == G_KILL:
-        # TODO: g-kill
-        pass
+        id = int(command[1])
+        port = PORT + id - 1
+        if port in ports:
+            conn = rpyc.connect("localhost", port)
+            conn.root.kill_general(port)
+            conn.close()
+
+            for node in nodes:
+                if node.id == id:
+                    node.terminate()
+                    nodes.remove(node)
+                    break
+
+            ports.remove(port)
+            for port in ports:
+                conn = rpyc.connect("localhost", port)
+                id, role, state, _ = conn.root.get_node_data()
+                print(f"G{id},{role},state={state}")
+                conn.close()
+        else:
+            print(f"No general with id {port % PORT + 1}.")
     elif command[0] == G_ADD:
         # TODO: g-add
         pass
