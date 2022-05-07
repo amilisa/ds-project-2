@@ -39,17 +39,20 @@ class Node(Process):
             if response != UNDEFINED:
                 votes[response] += 1
 
-        if self.generals_number < 3 * self.faulty_generals_number + 1:
+        order = max(votes, key=votes.get)
+        if votes[ATTACK] == votes[RETREAT]:
             self.majority = UNDEFINED
+        else:
+            self.majority = order
+
+        if self.generals_number < 3 * self.faulty_generals_number + 1:
             return f"Execute order: cannot be determined - not enough generals in the system! " + \
                 f"{self.faulty_generals_number} faulty node in the system, " + \
                 f"{self.generals_number - self.faulty_generals_number} out of {self.generals_number} quorum not consistent."
         else:
-            order = max(votes, key=votes.get)
             quorum_number = self.generals_number - self.faulty_generals_number if self.state == F  \
                 else self.generals_number - 1 - self.faulty_generals_number
 
-            self.majority = order
             return f"Execute order: {order}! " + \
                 f"{'Non-faulty' if self.faulty_generals_number == 0 else str(self.faulty_generals_number) + ' faulty'} nodes in the system, " + \
                 f"{quorum_number} out of {self.generals_number} quorum suggest {order}."
@@ -82,7 +85,7 @@ class Node(Process):
                 conn.close()
                 votes[order] += 1
 
-        if self.generals_number < 3 * self.faulty_generals_number + 1:
+        if votes[ATTACK] == votes[RETREAT]:
             self.majority = UNDEFINED
         else:
             self.majority = max(votes, key=votes.get)

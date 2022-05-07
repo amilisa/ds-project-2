@@ -101,7 +101,7 @@ while True:
             ports.remove(port)
             print_generals_data(ports, False)
         else:
-            response = f"{'No general with id' + str(port % PORT + 1) if not is_threshold else 'Cannot kill general as only one is left!'}"
+            response = f"{'No general with id ' + str(port % PORT + 1) if not is_threshold else 'Cannot kill general as only one is left!'}"
             print(response)
     elif command[0] == G_ADD:
         generals_to_add = int(command[1])
