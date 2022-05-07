@@ -108,5 +108,22 @@ class Node(Process):
         self.ports.remove(port)
         self.generals_number -= 1
 
+    def add_generals(self, new_ports):
+        if self.port == self.primary_port:
+            for port in self.ports:
+                conn = rpyc.connect("localhost", port)
+                conn.root.add_generals(new_ports)
+                conn.close()
+
+            for port in new_ports:
+                conn = rpyc.connect("localhost", port)
+                conn.root.set_primary(self.primary_port)
+                conn.close()
+            
+
+        for port in new_ports:
+            self.ports.append(port)
+            self.generals_number += 1
+
     def run(self):
         ThreadedServer(self.rpc_service, port=self.port).start()

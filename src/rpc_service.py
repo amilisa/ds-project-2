@@ -32,3 +32,6 @@ class RPCService(rpyc.Service):
 
     def exposed_remove_general(self, primary):
         self.node.remove_general(primary)
+
+    def exposed_add_generals(self, generals_number):
+        self.node.add_generals(generals_number)

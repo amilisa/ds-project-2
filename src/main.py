@@ -26,6 +26,13 @@ def signal_handler(sig, frame):
     print("Exiting...")
     exit(0)
 
+def print_generals_data(ports, flag=False):
+    for port in ports:
+            conn = rpyc.connect("localhost", port)
+            id, role, state, majority = conn.root.get_node_data()
+            print(f"G{id},{role},state={state}" + f"{',majority=' + majority if flag else ''}")
+            conn.close()
+
 
 generals_number = int(sys.argv[1])
 
@@ -53,16 +60,11 @@ while True:
         print("Command is invalid. Please try again.")
         continue
     elif command[0] == ACTUAL_ORDER:
-        ports.sort()
         conn = rpyc.connect("localhost", ports[0])
         response = conn.root.define_order(order=command[1])
         conn.close()
 
-        for port in ports:
-            conn = rpyc.connect("localhost", port)
-            id, role, state, majority = conn.root.get_node_data()
-            print(f"G{id},{role},state={state},majority={majority}")
-            conn.close()
+        print_generals_data(ports, True)
 
         print(response)
     elif command[0] == G_STATE:
@@ -71,11 +73,7 @@ while True:
             conn.root.set_state(state=command[2])
             conn.close()
 
-        for port in ports:
-            conn = rpyc.connect("localhost", port)
-            id, role, state, _ = conn.root.get_node_data()
-            print(f"G{id},{role},state={state}")
-            conn.close()
+        print_generals_data(ports, False)
     elif command[0] == G_KILL:
         id = int(command[1])
         port = PORT + id - 1
@@ -91,16 +89,25 @@ while True:
                     break
 
             ports.remove(port)
-            for port in ports:
-                conn = rpyc.connect("localhost", port)
-                id, role, state, _ = conn.root.get_node_data()
-                print(f"G{id},{role},state={state}")
-                conn.close()
+            print_generals_data(ports, False)
         else:
             print(f"No general with id {port % PORT + 1}.")
     elif command[0] == G_ADD:
-        # TODO: g-add
-        pass
+        generals_to_add = int(command[1])
+        new_ports = list(range(ports[-1] + 1, ports[-1] + 1 + generals_to_add))
+        for port in new_ports:
+            ports.append(port)
+        
+        for port in new_ports:
+            node = Node(port, ports.copy())
+            nodes.append(node)
+            node.start()
+
+        conn = rpyc.connect("localhost", ports[0])
+        conn.root.add_generals(new_ports)
+        conn.close()
+
+        print_generals_data(ports, False)
     elif command[0] == "exit":
         print("Exiting...")
         break
